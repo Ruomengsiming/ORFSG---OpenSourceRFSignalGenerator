@@ -1,0 +1,83 @@
+/* Note on how to address the FPGA and its subsystems:
+ * - MAX10_CS selects the FPGA. The FPGA ignores inputs or is transparent if MAX10_CS is HIGH
+ * - FPGA_IRQ-PIN is active LOW and used in two ways determined by the status of MAX10_CS:
+ * 		- MAX10_CS = HIGH: Interrupt-Request by the FPGA signaled by a LOW
+ * 		- MAX10_CS = LOW: BUSY-Flag - LOW = Ready, HIGH = Busy (e.g. Waiting for SDRAM to be ready) - An Interrupt is automatically Cleared by asserting MAX10_CS LOW. To check the cause for the Interrupt, perform a 1 Byte READ in FPGA-STATUS Mode.
+ * - AD9957_RESET Is multiplexed as the FPGA-Reset Line if MAX10_CS is LOW. Signal-Polarity is Active HIGH.
+ * - AD9957_IOUP, AD9957_IORESET and ADF4355_LE are used to address the Registers inside the FPGA:
+ *
+ * 						Register-Table:
+ * 		AD9957_IOUP | AD9957_IORESET | ADF4355_LE | Function
+ * 			LOW				LOW				LOW			FPGA-STATUS <- READ ONLY
+ * 			LOW				LOW				HIGH		SDRAM-Access to CPU-Memory
+ * 			LOW				HIGH			LOW			TBD
+ * 			LOW				HIGH			HIGH		TBD
+ * 			HIGH			LOW				LOW			TBD
+ * 			HIGH			LOW				HIGH		TBD
+ * 			HIGH			HIGH			LOW			FPGA-SETUP
+ * 			HIGH			HIGH			HIGH		SubsystemAddress (2 Bytes: Subsystem, Register-Address of Subsystem) <- This mode allows access to subsystems that are not directly addressable by the limited amount of Pins.
+ *
+ * - A combination of MAX10_CS, AD9957_CS and ADF4355_CS select the Subsystems responsible for the AD9957 and ADF4355. AD9957_IOUP, AD9957_IORESET and ADF4355_LE are used to address the registers of the Subsystems.
+ * 						Register-Table (AD9957):
+ * 		AD9957_IOUP | AD9957_IORESET | ADF4355_LE | Function
+ * 			LOW				LOW				LOW			STATUS <- READ ONLY
+ * 			LOW				LOW				HIGH		TBD
+ * 			LOW				HIGH			LOW			TBD
+ * 			LOW				HIGH			HIGH		TBD
+ * 			HIGH			LOW				LOW			TBD
+ * 			HIGH			LOW				HIGH		TBD
+ * 			HIGH			HIGH			LOW			TBD
+ * 			HIGH			HIGH			HIGH		SubsystemAddress (2 Bytes: Subsystem, Register-Address of Subsystem) <- This mode allows access to subsystems that are not directly addressable by the limited amount of Pins.
+ *
+ * 						Register-Table (ADF4355):
+ * 		AD9957_IOUP | AD9957_IORESET | ADF4355_LE | Function
+ * 			LOW				LOW				LOW			STATUS <- READ ONLY
+ * 			LOW				LOW				HIGH		TBD
+ * 			LOW				HIGH			LOW			TBD
+ * 			LOW				HIGH			HIGH		TBD
+ * 			HIGH			LOW				LOW			TBD
+ * 			HIGH			LOW				HIGH		TBD
+ * 			HIGH			HIGH			LOW			TBD
+ * 			HIGH			HIGH			HIGH		SubsystemAddress (2 Bytes: Subsystem, Register-Address of Subsystem) <- This mode allows access to subsystems that are not directly addressable by the limited amount of Pins.
+ */
+ 
+ /*
+ SDRAM-Information:
+ Max Clock-Rating for Chip: 200 MHz - Use "-5 or -5I"-rating for Winbond W9825G6KH
+ Total Memory: 4 Megawords * 4 Banks = 32 MegaByte
+ SDRAM Word-Size: 16bit
+ System Word-Size: 16bit
+ SDRAM Clock: Min. 125 MHz <- SDRAM-Chip supports up to 200 MHz Clock. Testing will show how fast the RAM can be clocked.  
+ Refresh: Every 64ms <- Can be increased if testing shows reliable data-retention over longer periods
+ Delays: 
+ - Refresh / Active to Refresh / Active (tRC): 55ns
+ - Bank Activate to Row Precharge (tRAS): 40ns =  8 Cycles @ 125 MHz
+ - RAS to CAS (tRCD): 15ns = 2 Cycles @ 125 MHz - 3 Cycles at higher frequencies
+ - CAS to CAS (tCCD): 1 Cycle - Independent of Clock-Frequency
+ - Precharge to Active-Command (tRP): 15ns = 2 Cycles @ 125 MHz - 3 Cycles at higher frequencies
+ - Active to Active (tRRD): 2 Cycles - Independent of Clock-Frequency
+ - Write Recovery (tWR): 2 Cycles - Independent of Clock-Frequency
+ - Refresh-Cycles: 8k Precharge-Cycles every 64ms
+ - Time to perform full Refresh: 8192 * 40ns = ca. 330us + Reserves = 500us
+ - Databuffer required for uninterrupted datastream: 100kWords = 200kByte FIFO-Buffer
+ 
+ FPGA Memory-Map
+ Organization:
+ - 0x00000000 - 0x0007CFFF = CPU-RAM (512 kWord = 1 MByte)
+ - 0x0007D000 - 0x000F423F = Not Assigned / RESERVED
+ - 0x000F4240 - 0x00F423FF = SignalSource-RAM (15 MWord = 30 MByte)
+ 
+ AD9957-DataFrame:
+ - QDUC-MODE: 
+ 	- 2x 18bit Words (I and Q-Samples)
+ 	- Sample-Speed: 250 MS/s or an integer divisor of that frequency (125 MHz, 62.5 MHz, etc.)
+ 	- Supplied via Parallel data interface
+ - Single Tone-Mode:
+ 	- Frequency Tuning-Word (32bit) + Amplitude Scale Factor-Word (14bit) + Phase Offset-Word (16bit) - Each word can be supplied alone or as a combination
+ 	- Max Datarate: 70 Mbps 
+ 	- Interface: SPI-Bus
+ - Interpolating DAC: 
+ 	- 18 Bit DAC-Word sent directly to output
+ 	- Sample-Speed: 250 MS/s or an integer divisor of that frequency (125 MHz, 62.5 MHz, etc.)
+ 	- Supplied via Parallel data interface
+ */ 

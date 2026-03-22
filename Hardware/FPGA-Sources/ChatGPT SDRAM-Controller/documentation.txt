@@ -1,0 +1,46 @@
+# SDRAM Controller Register Map and Configuration
+
+## Address Map (Avalon-MM)
+
+| Address (Hex) | Access | Description                    |
+|---------------|--------|--------------------------------|
+| 0x00 - 0x07   | R/W    | Configuration Registers (CFG0–CFG7) |
+| 0x10          | W      | SDRAM Write Data FIFO Input    |
+| 0x10          | R      | SDRAM Read Data FIFO Output    |
+
+---
+
+## Configuration Registers (0x00 – 0x07)
+
+### CFG0 – Mode Register Configuration
+- Bits [2:0]   – Burst Length (e.g., 000 = 1, 001 = 2, ... 111 = 8)
+- Bits [5:3]   – CAS Latency (000 = CL2, 001 = CL3, etc.)
+- Bits [15:6]  – Reserved
+
+### CFG1 – Refresh Timer Period (in clock cycles)
+- 16-bit value: how often refresh is issued (typically every 7.8us)
+
+### CFG2 – Write Burst Length
+- Defines how many words per burst write to issue to SDRAM
+
+### CFG3 – Read Burst Length
+- Defines how many words per burst read to issue from SDRAM
+
+### CFG4–CFG7 – Reserved for future expansion
+
+---
+
+## Write Interface (0x10)
+- Write 16-bit data to be queued into the write FIFO
+- Write FIFO should not be overfilled; check controller status externally
+
+## Read Interface (0x10)
+- Read 16-bit data from the read FIFO
+- Ensure valid is asserted before initiating read to avoid underflow
+
+---
+
+## Notes
+- Avalon interface responds immediately (waitrequest = '0')
+- Readdatavalid is only high when valid read data is returned
+- FIFO interfaces are used to decouple timing and allow pipelined bursts
